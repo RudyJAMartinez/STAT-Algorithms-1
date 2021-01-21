@@ -1,0 +1,24 @@
+---
+title: "Midterm Corrections"
+author: "Rudy Martinez"
+date: "10/27/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 3
+The goal of the two-sample t-test is the comparison of the mean values of two groups
+
+### Answer: TRUE
+The two-sample t-test is a parametric method that is appropriate for examining the difference in means for 2 populations. Simply put, this test is applied to compare whether the average difference between two groups is significant.
+
+<br>
+
+## Question 4
+The data showing bell-shaped and symmetric distribution always follows the Normal distribution
+
+### Answer: FALSE
+Just because data may show a bell-shaped and symmetric distribution does not mean that the data follows a normal distribution. Simply put, normal distributions are symmetrical, but not all symmetrical distributions are normal.

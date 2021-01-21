@@ -1,0 +1,280 @@
+---
+title: "Midterm Exam"
+author: "Rudy Martinez"
+date: "10/7/2020"
+output: pdf_document
+geometry: margin = 0.5in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set Working Directory
+```{r Set Working Directory}
+setwd("/Users/rudymartinez/Desktop/MSDA/Fall 2020/STA 6443_Algorithms I/STAT-Algorithms-1/Week 7/Midterm Exam")
+```
+
+## Read File
+```{r Read File}
+bweight = read.csv("birthweight.csv", header=TRUE);
+bweight$Black = as.factor(bweight$Black);
+bweight$Married = as.factor(bweight$Married);
+bweight$Boy = as.factor(bweight$Boy);
+bweight$MomSmoke = as.factor(bweight$MomSmoke);
+bweight$Ed = as.factor(bweight$Ed);
+bweight$Weight = as.numeric(bweight$Weight)
+```
+
+## Libraries
+```{r Libraries, message=FALSE}
+library(DescTools)
+library(MASS)
+library(car)
+library(tidyverse)
+```
+
+<br>
+
+## Exercise 1.A
+Generate Boxplot for infant birth weight (`Weight`) and comment on the general features of the distribution. Generate a normal QQ-plot and perform Shapiro-Wilk test to check whether normality is a reasonable assumption for `Weight.` Make a conclusion.
+```{r Exercise 1.A Boxplot}
+boxplot(bweight$Weight, 
+        main = "Distribution of Infant Birth Weight",
+        ylab = "Infant Birth Weight (gram)",
+        col = "lightcoral",
+        border = "black",
+        horizontal = FALSE
+)
+
+points(mean(bweight$Weight, na.rm=TRUE), col="red")
+```
+
+**Comments:** The Boxplot above represents the distribution of Infant Birth Weight (grams):
+
+  - Visually, the Boxplot appears to be symmetrical
+  
+  - The mean and median nearly overlap, indicating that the distribution is likely to be symmetric
+  
+  - In sum, the mean and median Infant Birth Weight are positioned within the `Weight` range of 3000 – 3500 grams
+
+<br>
+
+```{r Exercise 1.A QQ Plot & Shapiro-Wilk Test}
+qqnorm(bweight$Weight); qqline(bweight$Weight, col = 2)
+
+shapiro.test(bweight$Weight)
+```
+
+**Conclusion:** Through analysis of the Q-Q plot, we can see that a normal distribution is reasonable. Moreover, the Shapiro-Wilk normality test produces a p-value **above** the significance level of 0.05, meaning that there is not enough evidence to reject the null hypothesis. Thus, `Weight` follows a normal distribution.
+
+<br>
+
+## Exercise 1.B
+Generate a boxplot of `Weight` by `MomSmoke` and compare infant birth weights between smoking levels.
+```{r Exercise 1.B Boxplot}
+boxplot(Weight ~ MomSmoke, data=bweight, 
+        main = "Distribution of Infant Birth Weight by MomSmoke",
+        xlab = "MomSmoke",
+        ylab = "Infant Birth Weight (gram)",
+        col = "lightcoral",
+        border = "black",
+        horizontal = FALSE
+) 
+```
+
+**Note:** `MomSmoke` is a categorical variable where 0 is **non-smoking mom**, 1 is **smoking mom**
+
+  - Visually, it appears that Categorical Variables **non-smoking mom** and **smoking mom** do not have the same average Infant Birth Weight
+  
+  - The Group 0 (**non-smoking mom**) Boxplot appears to be symmetrical, while the Group 1 (**smoking mom**) Boxplot appears to be slightly right skewed.
+
+<br>
+
+## Exercise 1.C
+For each level in `MomSmoke`, perform Shapiro-Wilk test for checking the Normality of `Weight.` Make a conclusion.
+```{r Exercise 1.C Shapiro-Wilk Test}
+shapiro.test(bweight[bweight$MomSmoke=="0", "Weight"])
+
+shapiro.test(bweight[bweight$MomSmoke=="1", "Weight"])
+```
+
+**Conclusion:**
+
+  - The Shapiro-Wilk normality test results produces a p-value that is **above** the significance level of 0.05 for each `MomSmoke` group (**non-smoking mom** and **smoking mom**), meaning that there is not enough evidence to reject the null hypothesis. Thus, an assumption of Normality is reasonable for the `Weight` variable by each `MomSmoke` group.
+  
+<br>
+
+## Exercise 2
+We want to test if there is a significant difference in birth weights between infants from smoking mom and non-smoking mom. Perform a hypothesis test of whether infants from smoking moms have different weights than infants from non-smoking moms. Which test do you choose? Use the answer in Exercise 1 for choosing the proper test. Specify null and alternative hypotheses and state your conclusion.
+```{r Exercise 2 Equal Variance Test}
+var.test(Weight ~ MomSmoke, bweight, alternative = "two.sided")
+```
+
+**Comments:** Although **non-smoking mom** and **smoking mom** groups both follow a normal distribution, we must check for equal variance to determine the proper test.
+
+  - After conducting an F test (var.test), the results indicated a p-value of **0.8009**. This high p-value means we can’t reject the null hypothesis, indicating that the two groups have an **equal variance**.
+  
+  - Based on these findings, the next step is to conduct a **Pooled T-test**
+  
+<br>
+
+### Specify the Null and Alternative Hypothesis
+Null: mean `Weight` of **non-smoking mom** group is equivalent to the mean `Weight` of **smoking mom** group. 
+
+Alternative: mean `Weight` of **non-smoking mom** group is not equivalent to the mean `Weight` of **smoking mom** group. 
+
+<br>
+
+### Pooled T-test
+```{r Exercise 2 Pooled T-test}
+t.test(Weight ~ MomSmoke, bweight ,alternative ="two.sided", var.equal=TRUE) 
+```
+
+**Conclusion:** The Pooled t-test produced a p-value **below** the significance level of 0.05, meaning we reject the null hypothesis. This indicates that the Mean `Weight` of **non-smoking mom** group and **smoking mom** group are NOT equivalent. 
+
+<br>
+
+## Exercise 3.A
+Now perform one-way ANOVA on `Weight` with `MomSmoke.` Check homogeneity of variance assumption. Does it hold, and is it okay to perform ANOVA?
+```{r Exercise 3.A One-Way ANOVA}
+aov.res_weight = aov(Weight ~ MomSmoke, data = bweight)
+
+summary(aov.res_weight)
+```
+
+**Comments:** The p-value of 0.00233 is below the significance level of 0.05, meaning that we **reject** the null hypothesis. Therefore, `MomSmoke` has a significant effect on `Weight` (at least one group in `MomSmoke` has a different mean of `Weight`). 
+
+<br>
+
+### Check Homogeneity of Variance Assumption
+```{r Exercise 3.A Homogeneity of Variance Assumption}
+LeveneTest(aov.res_weight)
+```
+
+**Comments:** The p-value is above the significance level of 0.05, meaning that we **can't reject** the null. Therefore, all groups in `MomSmoke` have the same variance.The homogeneity of variance assumption **holds**. It is valid to perform ANOVA. 
+
+<br> 
+
+## Exercise 3.B
+```{r Exercise 3.B Post Hoc Test}
+ScheffeTest(aov.res_weight)
+```
+
+**Conclusion:** Due to a p-value (0.0023) below the significance level of 0.05, `MomSmoke` pair 1-0 has a significant effect on `Weight`. 
+
+  - Specifically, `MomSmoke` group 0 (**non-smoking mom**) infants have *greater average weights* than infants from `MomSmoke` group 1 (**smoking moms**). 
+  
+  - Simply put, the mean `Weight` of group 0 (**non-smoking mom**) is greater than the mean `Weight` of group 1 (**smoking moms**).
+  
+<br>
+
+## Exercise 4
+Using `Black`, `Married`, `Boy`, and `MomSmoke`, and `Ed` variables as possible effects, find the best ANOVA model for Weight. Manually perform backward selection based on **type3 SS** result with **0.05** criteria on p-value. Perform backward selection only with main effects and then check the interaction effects only based on significant main effect terms.
+
+## Exercise 4.A
+Write down step by step how you perform backward selection and how you find the final model. Please do NOT include all intermediate tables and graphs in the report. Just describe each step which variable you delete and why.
+
+### Start With Full Model (5 Variables)
+```{r Exercise 4.A Full Model, results = FALSE}
+aov.res_weight_2 = aov(Weight ~ Black + Married + Boy + MomSmoke + Ed, data = bweight)
+Anova(aov.res_weight_2, type = 3) 
+```
+
+**Results:** Based on the results of the Type 3 ANOVA test, `Black` and `MomSmoke` have a p-value below the significance level of 0.05 (0.0008217 and 0.0027017 respectively), meaning we reject the null. Both of these categorical predictors have a significant effect on `Weight`. 
+
+On the contrary, `Married`, `Boy`, and `Ed` have a p-value above the significance level of 0.05 (0.6394546, 0.3763046, and 0.8625846 respectively), meaning they **do not** have a significant effect on `Weight`. `Ed` **is removed from the model as it has the highest p-value.**
+
+### Model With 4 Variables
+```{r Exercise 4.A Model With 4 Variables, results = FALSE}
+aov.res_weight_3 = aov(Weight ~ Black + Married + Boy + MomSmoke, data = bweight)
+Anova(aov.res_weight_3, type = 3) 
+```
+
+**Results:** Based on the results of the Type 3 ANOVA test, `Black` and `MomSmoke` have a p-value below the significance level of 0.05 (0.0007778 and 0.0026466 respectively), meaning we reject the null. Both of these categorical predictors have a significant effect on `Weight`. 
+
+On the contrary, `Married` and `Boy` have a p-value above the significance level of 0.05 (0.6157671 and 0.3807876 respectively), meaning they **do not** have a significant effect on `Weight`. `Married` **is removed from the model as it has the highest p-value.**
+
+### Model With 3 Variables
+```{r Exercise 4.A Model With 3 Variables, results = FALSE}
+aov.res_weight_4 = aov(Weight ~ Black + Boy + MomSmoke, data = bweight)
+Anova(aov.res_weight_4, type = 3) 
+```
+
+**Results:** Based on the results of the Type 3 ANOVA test, `Black` and `MomSmoke` have a p-value below the significance level of 0.05 (0.0001223 and 0.0014471 respectively), meaning we reject the null. Both of these categorical predictors have a significant effect on `Weight`. 
+
+On the contrary, `Boy` has a p-value above the significance level of 0.05 (0.3888071), meaning it **does not** have a significant effect on `Weight`. `Boy` **is removed from the model as it has the highest p-value.**
+
+### Model With 2 Variables
+```{r Exercise 4.A Model With 2 Variables, results = FALSE}
+aov.res_weight_5 = aov(Weight ~ Black + MomSmoke, data = bweight)
+Anova(aov.res_weight_5, type = 3) 
+```
+
+**Results:** Based on the results of the Type 3 ANOVA test, `Black` and `MomSmoke` have a p-value below the significance level of 0.05 (0.0001232 and 0.0013954 respectively), meaning we reject the null. Both of these categorical predictors have a significant effect on `Weight`. 
+
+### Model With 2 Variables and Interaction
+```{r Exercise 4.A Model With 2 Variables and Interaction, results = FALSE}
+aov.res_weight_6 = aov(Weight ~ Black * MomSmoke, data = bweight)
+Anova(aov.res_weight_6, type = 3) 
+```
+
+**Results:** Based on the results of the Type 3 ANOVA test, `Black` and `MomSmoke` have a p-value below the significance level of 0.05 (0.0002707 and 0.0026729 respectively), meaning we reject the null. Both of these categorical predictors have a significant effect on `Weight`. 
+
+On the contrary, the Interaction between `Black` and `MomSmoke` has a p-value above the significance level of 0.05 (0.8807474), meaning it **does not** have a significant effect on `Weight`. **The Interaction is removed from the model as it has the highest p-value.**
+
+## Exercise 4.B
+Specify the final model and report the amount of variation explained by the model. Also, check the Normality assumption through diagnostics plots.
+
+### Final Model
+Model With **2 Variables and No Interaction**
+
+### Variation Explained by the Model (Predictors = `Black` and `MomSmoke`)
+```{r Exercise 4.B R-Squared}
+lm.res_weight_7 = lm(Weight ~ Black + MomSmoke , data = bweight)
+summary(lm.res_weight_7)$r.squared
+```
+
+**Results:** 7.9% of the variation of `Weight` can be explained by the model (`Black` and `MomSmoke`).
+
+### Normality Check
+```{r Exercise 4.B Normaility Check}
+par(mfrow=c(1,1))
+plot(aov.res_weight_5, 2)
+```
+
+**Diagnostics Plot:** Through analysis of the Q-Q plot, we can see that a normal distribution is reasonable. 
+
+## Exercise 4.C
+State conclusions about significant differences in `Weight` across groups. For each significant variable, state specifically which level has a larger or smaller mean value of `Weight.`
+
+### Post-hoc Test
+```{r Exercise 4.C Post-hoc Test}
+TukeyHSD(aov.res_weight_5)
+```
+
+`Black`
+
+  - Due to a p-value below the significance level of 0.05 (0.0001605), `Black` pair **1-0** has a significant effect on `Weight`.
+  
+  - Specifically, the following effects of `Black` on `Weight` can be seen: 
+  
+    - 1 < 0  (The mean `Weight` of 0 (White) is greater than the mean `Weight` of 1 (Black))
+
+
+`MomSmoke`
+
+  - Due to a p-value below the significance level of 0.05 (0.0013989), `MomSmoke` pair **1-0** has a significant effect on `Weight`.
+  
+  - Specifically, the following effects of `MomSmoke` on `Weight` can be seen: 
+  
+    - 1 < 0  (The mean `Weight` of 0 (**Non-Smoking Mom**) is greater than the mean `Weight` of 1 (**Smoking Mom**))
+
+<br> 
+
+In summary, the analysis above indicates the following:
+
+  - Mothers classified as Black have a **lower** mean value of Infant Birth Weight compared to Mothers classified as White
+  
+  - Mothers who smoke have a **lower** mean value of Infant Birth Weight compared to Mothers that **do not** smoke
+

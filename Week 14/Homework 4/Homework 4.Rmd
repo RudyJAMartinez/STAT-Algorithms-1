@@ -1,0 +1,439 @@
+---
+title: "Homework 4"
+author: "Rudy Martinez, Brenda Parnin, Jose Fernandez"
+date: "11/29/2020"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Libraries
+```{r Libraries, message=FALSE, warning=FALSE}
+library(DescTools)
+library(ResourceSelection)
+```
+
+### Set Working Directory
+```{r Set Working Directory}
+setwd("/Users/rudymartinez/Desktop/MSDA/Fall 2020/STA 6443_Algorithms I/STAT-Algorithms-1/Week 14/Homework 4")
+```
+
+***NOTE: Use significance level alpha = 0.1 in HW4***
+
+<br>
+
+## Exercise 1
+The **liver** data set is a subset of the **ILPD** (Indian Liver Patient Dataset) data set. It contains the first 10 variables described on the UCI Machine Learning Repository and a **LiverPatient** variable (indicating whether or not the individual is a liver patient. People with active liver disease are coded as **LiverPatient**=1 and people without disease are coded **LiverPatient**=0) for adults in the data set. Adults here are defined to be individuals who are at least 18 years of age. It is possible that there will be different significant predictors of being a liver patient for adult females and adult males.
+
+### Read and View Dataset Structure
+```{r Exercise 1-2 Read and View Data}
+liver = read.csv("liver.csv", header = TRUE)
+
+str(liver)
+```
+
+### Exercise 1.A
+**For only females in the data set**, find and specify the best set of predictors via stepwise selection with AIC criteria for a logistic regression model predicting whether a female is a liver patient with active liver disease.
+
+**NOTE:** Specifying the full model using “LiverPatient~., data=…” will give an error message (due to only one level of factor – Female – in the data, I guess so). Suggest typing all variables manually for the full model
+
+#### Fit Logistic Regression Model (Female)
+```{r Exercise 1.A Fit Logistic Regression Model}
+liverF = liver[which(liver$Gender == "Female"),]
+
+glm.null.F = glm(LiverPatient ~ 1, data = liverF, family = "binomial")
+
+glm.full.F = glm(LiverPatient ~ Age + TB + DB +Alkphos + Alamine + Aspartate + TP + ALB, data = liverF, family = "binomial")
+```
+
+#### Stepwise Selection with AIC Criteria
+```{r Exercise 1.A Stepwise Selection}
+step.model.1 = step(glm.null.F, scope = list(upper = glm.full.F),
+                    direction="both",test="Chisq", trace = F) 
+
+summary(step.model.1)
+```
+
+  - **Significant Predictors:** Based on these results, `DB` and `Aspartate` are significant predictors as they have a p-value below the significance level of 0.1.
+
+### Exercise 1.B
+Comment on the significance of parameter estimates under significance level **alpha=0.1**, what Hosmer-Lemeshow’s test tells us about goodness of fit, and point out any issues with diagnostics by checking residual plots and cook’s distance plot (**with cut-off 0.25**).
+
+  - **Significance of Parameter Estimates:** The `DB` predictor has a p-value of 0.0905, below the significance level of 0.1; therefore, there is a significant relationship between `DB` and whether a female is a liver patient with active liver disease. The `Aspartate` predictor has a p-value below of .0726, below the significance level of 0.1; therefore, there is a significant relationship between `Aspartate` and whether a female is a liver patient with active liver disease.
+
+#### Hosmer-Lemeshow Test
+```{r Exercise 1.B Hosmer-Lemeshow Test}
+hoslem.test(step.model.1$y, fitted(step.model.1), g=10)
+```
+
+  - **Goodness of Fit:** The Hosmer-Lemeshow Test yielded a p-value of 0.4579 which is above the significance level of 0.1. We **do not** reject the null; therefore, the **model is adequate**.
+
+#### Residual Plots
+```{r Exercise 1.B Residual Plots}
+resid.d = residuals(step.model.1, type = "deviance")
+resid.p = residuals(step.model.1, type = "pearson")
+std.res.d = residuals(step.model.1, type = "deviance")/sqrt(1 - hatvalues(step.model.1))
+std.res.p = residuals(step.model.1, type = "pearson")/sqrt(1 - hatvalues(step.model.1))
+
+par(mfrow=c(1,2))
+plot(std.res.d[step.model.1$model$LiverPatient==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. deviance residuals", xlab = "ID")
+points(std.res.d[step.model.1$model$LiverPatient==1], col = "blue")
+
+plot(std.res.p[step.model.1$model$LiverPatient==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. Pearson residuals", xlab = "ID")
+points(std.res.p[step.model.1$model$LiverPatient==1], col = "blue")
+```
+
+  - **Observation:** There appears to be a parallel pattern in the residuals plots. This is due to similar estimated probabilities for all observations. To explain, both Pearson and Deviance residuals are based on (Y - P_hat) and if the p_hats are similar for all observations, a parallel pattern presents itself. Therefore, the parallel pattern above is due to data feature, not due to violation of assumptions. Additionally, the plotted points fall within the range of 0 to 1 (Blue) and -1 to -2 (Red).
+
+Because there are no points with very large values, the Bernoulli assumption is valid. Moreover, because there is not a systematic pattern in the plot; therefore, it does not violate the linearity assumption. 
+  
+#### Cook's Distance (Influence Diagnostics)
+```{r Exercise 1.B Cooks Distance}
+plot(step.model.1, which = 4, id.n = 5)
+
+inf.id.1 = which(cooks.distance(step.model.1)>0.25)
+inf.id.1
+```
+
+  - **Issues Identified in Model Diagnostics:** There are no observations with a Cook's distance larger than 0.25. 
+
+### Exercise 1.C
+Interpret relationships between predictors in the final model and the odds of an adult female being a liver patient. (based on estimated Odds Ratio).
+
+#### Final Model
+```{r Exercise 1.C Final Model}
+summary(step.model.1)
+```
+
+**Final Model:** Log(p/1-p) = -0.32480 + 0.94479 * `DB` + 0.01106 * `Aspartate`
+
+#### Odds Ratio
+```{r Exercise 1.C Odds Ratio}
+round(exp(step.model.1$coefficients),3)
+```
+  
+**Odds Ratio Interpretation:** 
+
+  - The odds of an adult female being a liver patient with active liver disease increase by a factor of exp(0.94479) = 2.572 with a one unit increase in `DB` when `Aspartate` is held constant.
+  
+  - The odds of an adult female being a liver patient with active liver disease increase by a factor of exp(0.01106) = 1.011 with a one unit increase in `Aspartate` when `DB` is held constant.
+
+**Thus**, an adult female with high levels of `DB` or Direct Bilirubin and `Aspartate` or Aspartate Aminotransferase is more likely to be a liver patient with active liver disease. 
+
+<br>
+
+## Exercise 2
+Repeat exercise 1 for males. In addition to the previous questions, also d) comment on how the models for adult females and adult males differ. Use significance level **alpha=0.1**
+
+### Exercise 2.A
+**For only males in the data set**, find and specify the best set of predictors via stepwise selection with AIC criteria for a logistic regression model predicting whether a male is a liver patient with active liver disease.
+
+#### Fit Logistic Regression Model (Male)
+```{r Exercise 2.A Fit Logistic Regression Model, message=FALSE, warning=FALSE}
+liverM = liver[which(liver$Gender == "Male"),]
+
+glm.null.M = glm(LiverPatient ~ 1, data = liverM, family = "binomial")
+
+glm.full.M = glm(LiverPatient ~ Age + TB + DB +Alkphos + Alamine + Aspartate + TP + ALB, data = liverM, family = "binomial")
+```
+
+#### Stepwise Selection with AIC Criteria
+```{r Exercise 2.A Stepwise Selection with AIC Criteria, , message=FALSE, warning=FALSE}
+step.model.2 = step(glm.null.M, scope = list(upper = glm.full.M),
+                    direction="both",test="Chisq", trace = F) 
+
+summary(step.model.2)
+```
+
+  - **Significant Predictors:** Based on these results, `DB`, `Alamine`, `Age`, and `Alkphos` are significant predictors as they have a p-value below the significance level of 0.1.
+
+### Exercise 2.B
+Comment on the significance of parameter estimates under significance level **alpha=0.1**, what Hosmer-Lemeshow’s test tells us about goodness of fit, and point out any issues with diagnostics by checking residual plots and cook’s distance plot (**with cut-off 0.25**).
+ 
+  - **Significance of Parameter Estimates:** The `DB`, `Alamine`, `Age`, and `Alkphos` predictors have p-values of 0.00360, 0.00197, 0.01087, and 0.09992 respectively, below the significance level of 0.1; therefore, there is a significant relationship between `DB`, `Alamine`, `Age`, and `Alkphos` and whether a male is a liver patient with active liver disease. 
+
+#### Hosmer-Lemeshow Test
+```{r Exercise 2.B Hosmer-Lemeshow Test}
+hoslem.test(step.model.2$y, fitted(step.model.2), g=10)
+```
+
+  - **Goodness of Fit:** The Hosmer-Lemeshow Test yielded a p-value of 0.532 which is above the significance level of 0.1. We **do not** reject the null; therefore, the **model is adequate**.
+
+#### Residual Plots
+```{r Exercise 2.B Residual Plots}
+resid.d = residuals(step.model.2, type = "deviance")
+resid.p = residuals(step.model.2, type = "pearson")
+std.res.d = residuals(step.model.2, type = "deviance")/sqrt(1 - hatvalues(step.model.2))
+std.res.p = residuals(step.model.2, type = "pearson")/sqrt(1 - hatvalues(step.model.2))
+
+par(mfrow=c(1,2))
+plot(std.res.d[step.model.2$model$LiverPatient==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. deviance residuals", xlab = "ID")
+points(std.res.d[step.model.2$model$LiverPatient==1], col = "blue")
+
+plot(std.res.p[step.model.2$model$LiverPatient==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. Pearson residuals", xlab = "ID")
+points(std.res.p[step.model.2$model$LiverPatient==1], col = "blue")
+```
+
+  - **Observation:** There appears to be a parallel pattern in the residuals plots. This is due to similar estimated probabilities for all observations. To explain, both Pearson and Deviance residuals are based on (Y - P_hat) and if the p_hats are similar for all observations, a parallel pattern presents itself. Therefore, the parallel pattern above is due to data feature, not due to violation of assumptions. Additionally, the majority of the plotted points fall within the range of 0 to 1 (Blue) and -1 to -2 (Red). It's worth noting that there are a set of Red points outside of the -1 to -2 range.
+
+Because there are no points with very large values, the Bernoulli assumption is valid. Moreover, because there is not a systematic pattern in the plot; therefore, it does not violate the linearity assumption. 
+
+#### Cook's Distance (Influence Diagnostics)
+```{r Exercise 2.B Cooks Distance}
+plot(step.model.2, which = 4, id.n = 5)
+
+inf.id.2 = which(cooks.distance(step.model.2)>0.25)
+inf.id.2
+```
+
+  - **Issues Identified in Model Diagnostics:**  Observation **111** and **86** have a Cook's distance larger than 0.25. 
+
+#### Refitted Model without Observations 111 and 86:
+```{r Exercise 2.B Refitted Model without Obervations 111 and 86, message=FALSE, warning=FALSE}
+glm.liver.final.2 = glm(LiverPatient ~ DB + Alamine + Age + Alkphos, data = liverM[-inf.id.2, ], family = "binomial")
+```
+
+### Exercise 2.C
+Interpret relationships between predictors in the final model and the odds of an adult male being a liver patient. (based on estimated Odds Ratio).
+
+#### Final Model
+```{r Exercise 2.C Final Model}
+summary(glm.liver.final.2)
+```
+
+**Final Model:** : Log(p/1-p) = -1.902754 + 0.573104 * `DB` + 0.015850 * `Alamine` + 0.020418 * `Age` + 0.003744 * `Alkphos`
+
+#### Odds Ratio
+```{r Exercise 2.C Odds Ratio}
+round(exp(glm.liver.final.2$coefficients),3)
+```
+  
+**Odds Ratio Interpretation:** 
+
+  - The odds of an adult male being a liver patient with active liver disease increase by a factor of exp(0.573104) = 1.774 with a one unit increase in `DB` when `Alamine`, `Age`, and `Alkphos` are held constant. 
+  
+  - The odds of an adult male being a liver patient with active liver disease increase by a factor of exp(0.015850) = 1.016 with a one unit increase in `Alamine` when `DB`, `Age`, and `Alkphos` are held constant. 
+
+  - The odds of an adult male being a liver patient with active liver disease increase by a factor of exp(0.020418) = 1.021 with a one unit increase in `Age` when `DB`, `Alamine`, and `Alkphos` are held constant. 
+
+  - The odds of an adult male being a liver patient with active liver disease increase by a factor of exp(0.003744) = 1.004 with a one unit increase in `Alkphos` when `DB`, `Alamine`, and `Age` are held constant. 
+
+**Thus**, an adult male with high levels of `DB` or Direct Bilirubin, `Alamine` or Alamine Aminotransferase, `Alkphos` or Alkaline Phosphotase, and an older `Age` is more likely to be a liver patient with active liver disease. 
+
+### Exercise 2.D
+Comment on how the models for adult females and adult males differ.
+
+Adult females have fewer predictors (`DB` and `Aspartate`) that are significant and increase the odds of being a liver patient with active liver disease. Males have more predictors (`DB`, `Alamine`, `Age`, and `Alkphos`) that are significant and increase the odds of being a liver patient with active liver disease. 
+
+<br>
+
+## Exercise 3
+Use the **sleep_new data** set which originates from http://lib.stat.cmu.edu/datasets/sleep. **maxlife10** is 1 if the species maximum life span is less than 10 years and 0 if its maximum life span is greater than or equal to 10 years. Consider finding the best logistic model for predicting the probability that a species' maximum lifespan will be at least 10 years. Consider all 6 variables as candidates (do not include species) and two index variables of them are categorical in nature. **Treat two index variables as categorical variables** (e.g. ignore the fact that they are ordinal). Use significance level **alpha=0.1**
+
+### Read and View Dataset Structure
+```{r Exercise 3-4 Read and View Data}
+sleep = read.csv("sleep_new.csv", header = TRUE)
+
+str(sleep)
+```
+
+### Exercise 3.A
+First find and specify the best set of predictors via stepwise selection with AIC criteria.
+
+#### Fit Logistic Regression Model
+```{r Exercise 3.A Fit Logistic Regression Model, message=FALSE, warning=FALSE}
+glm.null.sleep1 = glm(maxlife10 ~ 1, data = sleep, family = "binomial")
+
+glm.full.sleep1 = glm(maxlife10 ~ bodyweight + brainweight + totalsleep + gestationtime + as.factor(predationindex) + as.factor(sleepexposureindex), 
+                      data = sleep, family = "binomial")
+```
+
+#### Stepwise Selection with AIC Criteria
+```{r Exercise 3.A Stepwise Selection with AIC Criteria, message=FALSE, warning=FALSE}
+step.sleep1 = step(glm.null.sleep1, scope = list(upper=glm.full.sleep1),
+     direction ="both",test ="Chisq", trace = F)
+
+summary(step.sleep1)
+```
+
+  - **Significant Predictors:** Based on these results, `sleepexposureindex` is a significant predictor as it has a p-value below the significance level of 0.1.
+
+### Exercise 3.B
+Comment on the significance of parameter estimates, what Hosmer-Lemeshow’s test tells us about goodness of fit, and point out any issues with diagnostics by checking residual plots and cook’s distance plot. **Do not** remove influential points but just make comments on suspicious observations.
+
+  - **Significance of Parameter Estimates:** `sleepexposureindex` Level 1,3,4, and 5 have no effect on the probability of having an event. Only `sleepexposureindex` Level 2 has a significantly different probability of having an event. Even though this is the case, `sleepexposureindex` is a **significant** predictor.
+
+#### Hosmer-Lemeshow Test
+```{r Exercise 3.B Hosmer-Lemeshow Test}
+hoslem.test(step.sleep1$y, fitted(step.sleep1), g=10)
+```
+
+  - **Goodness of Fit:** The Hosmer-Lemeshow Test yielded a p-value of 0.5324 which is above the significance level of 0.1. We **do not** reject the null; therefore, the **model is adequate**.
+
+#### Residual Plots
+```{r Exercise 3.B Residual Plots}
+resid.d = residuals(step.sleep1, type = "deviance")
+resid.p = residuals(step.sleep1, type = "pearson")
+std.res.d = residuals(step.sleep1, type = "deviance")/sqrt(1 - hatvalues(step.sleep1))
+std.res.p = residuals(step.sleep1, type = "pearson")/sqrt(1 - hatvalues(step.sleep1))
+
+par(mfrow=c(1,2))
+plot(std.res.d[step.sleep1$model$maxlife10==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. deviance residuals", xlab = "ID")
+points(std.res.d[step.sleep1$model$maxlife10==1], col = "blue")
+
+plot(std.res.p[step.sleep1$model$maxlife10==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. Pearson residuals", xlab = "ID")
+points(std.res.p[step.sleep1$model$maxlife10==1], col = "blue")
+```
+
+  - **Observation:** All of the Blue plotted points fall within the range of 0 to 1; however, the Red plotted points fall within the range of 0 to -2. It appears that there is some overlap in the plotted points. 
+
+Because there are no points with very large values, the Bernoulli assumption is valid. Moreover, because there is not a systematic pattern in the plot; therefore, it does not violate the linearity assumption. 
+
+#### Cook's Distance (Influence Diagnostics)
+```{r Exercise 3.B Cooks Distance}
+plot(step.sleep1, which = 4, id.n = 5)
+
+inf.id.3 = which(cooks.distance(step.sleep1)>0.25)
+inf.id.3
+```
+
+  - **Issues Identified in Model Diagnostics:** Observation **35** and **40** have a Cook's Distance larger than 0.25.
+  
+#### Refitted Model without Observations 35 and 40:
+```{r Exercise 3.B Refitted Model without Obervations 111 and 86, message=FALSE, warning=FALSE}
+glm.sleep.final.1 = glm(maxlife10 ~ brainweight + totalsleep + as.factor(predationindex) + as.factor(sleepexposureindex), 
+                      data = sleep[-inf.id.3], family = "binomial")
+```
+
+### Exercise 3.C
+Interpret what the model tells us about relationships between the predictors and the odds of a species' maximum lifespan being at least 10 years.
+
+#### Final Model
+```{r Exercise 3.C Final Model}
+summary(glm.sleep.final.1)
+```
+
+#### Odds Ratio
+```{r Exercise 3.C Odds Ratio}
+round(exp(glm.sleep.final.1$coefficients),3)
+```
+  
+**Odds Ratio Interpretation:** 
+
+  - odds(`sleepexposureindex` = 2)/odds(`sleepexposureindex` = 1) = exp(4.998e+00) = 1.480500e+02
+
+  - There is no need to interpret the insignificant levels as they imply zero coefficients (with large p-values). The odds that a species' maximum lifespan will be at least 10 years is exp(4.998e+00) = 1.480500e+02 times for the `sleepexposureindex` Level 2 group compared other groups.
+
+**Thus**, animals that sleep in the second-best (Level 2) well-protected den have a higher probability of achieving a maximum lifespan of at least 10 years. 
+
+<br>
+
+## Exercise 4
+The index variables in the data set are ordinal, meaning they are categorical and they have a natural ordering. If we treat an index variable as a continuous variable, this will imply a linear change as the index changes. Repeat Exercise 3 by **treating two index variables as continuous variables**. Use significance level **alpha=0.1**
+
+#### Fit Logistic Regression Model
+```{r Exercise 4.A Fit Logistic Regression Model, message=FALSE, warning=FALSE}
+glm.null.sleep2 = glm(maxlife10 ~ 1, data = sleep, family = "binomial")
+
+glm.full.sleep2 = glm(maxlife10 ~ bodyweight + brainweight + totalsleep + gestationtime + predationindex + sleepexposureindex, data = sleep, family = "binomial")
+```
+
+#### Stepwise Selection with AIC Criteria
+```{r Exercise 4.A Stepwise Selection with AIC Criteria, message=FALSE, warning=FALSE}
+step.sleep2 = step(glm.null.sleep2, scope = list(upper=glm.full.sleep2),
+     direction ="both",test ="Chisq", trace = F)
+
+summary(step.sleep2)
+```
+
+  - **Significant Predictors:** Based on these results, `brainweight`, `totalsleep`, `sleepexposureindex`, and `predationindex` are a significant predictors as they have a p-value below the significance level of 0.1
+  
+### Exercise 4.B
+Comment on the significance of parameter estimates, what Hosmer-Lemeshow’s test tells us about goodness of fit, and point out any issues with diagnostics by checking residual plots and cook’s distance plot. **Do not** remove influential points but just make comments on suspicious observations.
+
+  - **Significance of Parameter Estimates:** The `brainweight`, `totalsleep`, `sleepexposureindex`, and `predationindex` predictors have p-values of 0.0895, 0.0865, 0.0252, and 0.0265 respectively, below the significance level of 0.1; therefore, there is a significant relationship between `brainweight`, `totalsleep`, `sleepexposureindex`, and `predationindex` and whether an animal species' maximum lifespan will be at least 10 years.
+
+#### Hosmer-Lemeshow Test
+```{r Exercise 4.B Hosmer-Lemeshow Test}
+hoslem.test(step.sleep2$y, fitted(step.sleep2), g=10)
+```
+
+  - **Goodness of Fit:** The Hosmer-Lemeshow Test yielded a p-value of 0.9937 which is above the significance level of 0.1. We **do not** reject the null; therefore, the **model is adequate**.
+
+#### Residual Plots
+```{r Exercise 4.B Residual Plots}
+resid.d = residuals(step.sleep2, type = "deviance")
+resid.p = residuals(step.sleep2, type = "pearson")
+std.res.d = residuals(step.sleep2, type = "deviance")/sqrt(1 - hatvalues(step.sleep2))
+std.res.p = residuals(step.sleep2, type = "pearson")/sqrt(1 - hatvalues(step.sleep2))
+
+par(mfrow=c(1,2))
+plot(std.res.d[step.sleep2$model$maxlife10==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. deviance residuals", xlab = "ID")
+points(std.res.d[step.sleep2$model$maxlife10==1], col = "blue")
+
+plot(std.res.p[step.sleep2$model$maxlife10==0], col = "red", 
+     ylim = c(-3.5,3.5), ylab = "std. Pearson residuals", xlab = "ID")
+points(std.res.p[step.sleep2$model$maxlife10==1], col = "blue")
+```
+
+  - **Observation:** All of the Blue plotted points fall within the range of 0 to 1; however, the majority of the Red plotted points fall within the range of 0 to -2. It appears that there is some overlap in the plotted points, and there is also a Red plotted point outside the range of 0 to -2.
+
+Because there are no points with very large values, the Bernoulli assumption is valid. Moreover, because there is not a systematic pattern in the plot; therefore, it does not violate the linearity assumption. 
+
+#### Cook's Distance (Influence Diagnostics)
+```{r Exercise 4.B Cooks Distance}
+plot(step.sleep2, which = 4, id.n = 5)
+
+inf.id.4 = which(cooks.distance(step.sleep2)>0.25)
+inf.id.4
+```
+
+  - **Issues Identified in Model Diagnostics:** Observation **10**, **35**, **40**, and **50** have a Cook's Distance larger than 0.25.
+  
+#### Refitted Model without Observations 10, 35, 40, and 50 
+```{r Exercise 4.B Refitted Model without Observations 10, 35, 40, and 50, message=FALSE, warning=FALSE}
+glm.sleep.final.2 = glm(maxlife10 ~ brainweight + totalsleep + predationindex + sleepexposureindex, 
+                      data = sleep[-inf.id.4], family = "binomial")
+```
+
+### Exercise 4.C
+Interpret what the model tells us about relationships between the predictors and the odds of a species' maximum lifespan being at least 10 years.
+
+#### Final Model
+```{r Exercise 4.C Final Model}
+summary(glm.sleep.final.2)
+```
+
+**Final Model:** Log(p/1-p) = -6.16387 + 0.06018 * `brainweight` + 0.35985 * `totalsleep` + 4.42111 * `sleepexposureindex` + -3.36917 * `predationindex`
+
+#### Odds Ratio
+```{r Exercise 4.C Odds Ratio}
+round(exp(glm.sleep.final.2$coefficients),3)
+```
+  
+**Odds Ratio Interpretation:** 
+
+  - The odds that a species' maximum lifespan will be at least 10 years increase by a factor of exp(0.06018) = 1.062 with a one unit increase in `brainweight` when `totalsleep`, `sleepexposureindex`, and `predationindex` are held constant.
+  
+  - The odds that a species' maximum lifespan will be at least 10 years increase by a factor of exp(0.35985) = 1.433 with a one unit decrease in `totalsleep` when `brainweight`, `sleepexposureindex`, and `predationindex` are held constant.
+  
+  - The odds that a species' maximum lifespan will be at least 10 years decrease by a factor of exp(-3.36917) =  0.034 with a one unit increase in `predationindex` when `totalsleep`, `brainweight`, and `sleepexposureindex` are held constant.
+  
+  - The odds that a species' maximum lifespan will be at least 10 years increase by a factor of exp(4.42111) =  83.188 with a one unit increase in `sleepexposureindex` when `totalsleep`, `brainweight`, and `predationindex` are held constant.
+
+**Thus**, a species of an animal that has  higher `brainweight`, has higher `totalsleep`, has a lower `predationindex`, and has a lower `sleepexposureindex` is more likely to have a lifespan of at least 10 years. Simply put, an animal species with a heavier brain that gets more sleep, is least likely to be preyed upon, and sleeps in a less exposed area has a higher probability of having a lifespan of at least 10 years.
+
+
+

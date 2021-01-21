@@ -1,0 +1,269 @@
+---
+title: 'STA 6443 DA Algorithms I: Final Exam'
+author: "Rudy Martinez"
+date: "12/5/2020"
+output: pdf_document
+geometry: margin=1in
+classoption: landscape
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+```{r Libraries, message=FALSE, warning=FALSE}
+library(MASS)
+library(car)
+library(olsrr)
+library(DescTools)
+library(ResourceSelection)
+```
+
+## Set Working Directory
+```{r Set Working Directory}
+setwd("/Users/rudymartinez/Desktop/MSDA/Fall 2020/STA 6443_Algorithms I/STAT-Algorithms-1/Final Exam")
+```
+
+## Read and View Data Structure
+```{r Read Data}
+birthweight = read.csv("birthweight_final.csv", header = TRUE)
+birthweight$Black = as.factor(birthweight$Black)
+birthweight$Married = as.factor(birthweight$Married)
+birthweight$Boy = as.factor(birthweight$Boy)
+birthweight$MomSmoke = as.factor(birthweight$MomSmoke)
+birthweight$Ed = as.factor(birthweight$Ed)
+
+str(birthweight)
+```
+
+# Exercise 1
+Consider to fit a multiple linear regression to model `Weight` using possible explanatory variables; `Black`, `Married`, `Boy`, `MomSmoke`, `Ed`, `MomAge`, `MomWtGain`, and `Visit` (all predictors excluding `Weight_Gr`).
+
+## Exercise 1.1
+Perform the following four model selection methods and compare their best models. Comment on how they differ or similar in terms of selected variables in the final model. No need to interpret outputs.
+
+### Full Model
+```{r Exercise 1.1 Full Model}
+lm.birthweight = lm(Weight ~ Black + Married + Boy + MomSmoke + Ed + MomAge + MomWtGain + Visit, data = birthweight)
+```
+
+### Stepwise selection with 0.01 p-value criteria for both entry and stay
+```{r Exercise 1.1 Stepwise Selection}
+model.stepwise = ols_step_both_p(lm.birthweight, pent = 0.01, prem = 0.01, details = FALSE)
+model.stepwise
+```
+
+### Forward selection with 0.01 p-value criteria for entry
+```{r Exercise 1.1 Forward Selection}
+model.forward = ols_step_forward_p(lm.birthweight, penter = 0.01, details = F)
+model.forward   
+```
+
+### Backward selection with 0.01 p-value criteria for stay
+```{r Exercise 1.1 Backward Selection}
+model.backward = ols_step_backward_p(lm.birthweight, prem = 0.01, details = F)
+model.backward 
+```
+
+### Adjusted R-squared Criteria
+```{r Exercise 1.1 Adjusted R-Squared}
+model.best.subset = ols_step_best_subset(lm.birthweight)
+model.best.subset
+```
+
+  - **Stepwise Selection Model:** 3 Predictors:`MomWtGain`, `MomSmoke`, and `Black`
+
+  - **Forward Selection Model:**  3 Predictors: `MomWtGain`, `MomSmoke`, and `Black`
+
+  - **Backward Selection Model:**  3 Predictors: `MomWtGain`, `MomSmoke`, and `Black`
+
+  - **Best Subsets Approach Model (Adjusted R-Squared):** 6 Predictors: `Black`, `Married`, `Boy`, `MomSmoke`, `Ed`, and `MomWtGain` 
+
+**Comments:** The Stepwise Selection,  Forward Selection, and Backward Selection models have the same predictors (`MomWtGain`, `MomSmoke`, and `Black`) - they have these predictors in common with the Best Subsets Approach model. `Married`, `Boy`, and `Ed` are predictors unique to the Best Subsets Approach model.
+
+## Exercise 1.2
+Fit the linear regression with the best model determined by stepwise selection and comment on diagnostics plot. Do not leave observation which has Cook’s distance larger than **0.115**. Re-fit the model if necessary. Finally how many observations you use in the final model?
+
+### Fit Linear Regression Model (Determined by Stepwise Selection)
+```{r Exercise 1.2 Fit Linear Regression Model}
+lm.birthweight.stepwise.1 = lm(Weight ~ MomWtGain + MomSmoke + Black, data = birthweight)
+```
+
+### Diagnostics Plot
+```{r Exercise 1.2 Diagnostics Plot}
+par(mfrow=c(2,2))
+plot(lm.birthweight.stepwise.1, which=1:4)
+```
+
+  - **Normality Check:** Looking at the **Normal Q-Q Plot**, we see that many of the points fall along the line for the majority of the graph. However, looking at the points in the extremities of the graph, they appear to curve off the line. This indicates that an assumption of normality is **not** reasonable. This is reinforced by looking at the **sqrt(Standardized Residuals) Plot**. Because a considerable number of observations fall above 1.5 along the Y-axis, an assumption of normality is **not** reasonable.
+
+  - **Equal Variance Check:** Looking at the **Standardized Residuals Plot**, we see that there **is** a pattern in the residual plot. This supports heteroscedasticity.
+
+## Cook's Distance
+```{r Exercise 1.2 Cooks Distance}
+plot(lm.birthweight.stepwise.1, which = 4, id.n = 5)
+
+inf.id.1 = which(cooks.distance(lm.birthweight.stepwise.1) > 0.115)
+inf.id.1
+```
+
+  - **Issues Identified in Model Diagnostics:** Observation 129 has a Cook's distance larger than 0.115; therefore, the model will be refitted without this influential point.
+  
+### Refitted Model
+```{r Exercise 1.2 Refitted Model}
+lm.birthweight.stepwise.2 = lm(Weight ~ MomWtGain + MomSmoke + Black, data = birthweight[-inf.id.1,])
+```
+
+  - **Observations:** The Final Model will have 399 observations.
+
+## Exercise 1.3
+How much of the variation in `Weight` is explained by the final model?
+```{r Exercise 1.3 R-Squared}
+summary(lm.birthweight.stepwise.2)$r.squared 
+```
+
+  - **R-Squared:** Based on the above R-Squared, 13.66% of the variation in `Weight` can be explained by the model; therefore, the predictive power of this model is low.
+
+## Exercise 1.4
+Interpret the relationship between predictor variables (in the final model) and Weight value specifically.
+```{r Exercise 1.4 Relationship Between Predictor Variables and Weight}
+summary(lm.birthweight.stepwise.2)
+```
+
+**Model Significance:** The model p-value of 1.493e-12 is below the significance level of 0.05; therefore, we reject the null and conclude that the multiple linear regression model is useful to explain the behavior of `Weight`.
+  
+**Individual Term Significance** 
+
+  - A p-value of 0.01133 is below the significance level of 0.05; therefore, `Black` and `Weight` have a significant linear relationship. 
+  
+ - A p-value of 0.00186 is below the significance level of 0.05; therefore, `MomSmoke` and `Weight` have a significant linear relationship. 
+ 
+ - A p-value of 1.39e-09 is below the significance level of 0.05; therefore, `MomWtGain` and `Weight` have a significant linear relationship.
+
+  - **Interpretation:** On average, Black women who smoke give birth to infants that weigh less than women who are not Black and don't smoke when `MomWtGain` (Mother’s weight gain during pregnancy) is the same. 
+
+<br> 
+
+# Exercise 2
+Now we consider fitting a logistic regression for low birthweight (`Weight_Gr`=1). Again consider `Black`, `Married`, `Boy`, `MomSmoke`, `Ed`, `MomAge`, `MomWtGain`, and `Visit` as possible explanatory variables.
+
+## Exercise 2.1
+Perform following model selection methods and compare their best models. Comment how they differ or similar in terms of selected variables (Stepwise Selection with AIC and BIC Criteria).
+
+### Fit Logistic Regression Model
+```{r Exercise 2.1 Fit Logistic Regression Model}
+glm.null.2 = glm(Weight_Gr ~ 1, data = birthweight, family = "binomial")
+
+glm.full.2 = glm(Weight_Gr ~ Black + Married + Boy + MomSmoke + Ed + MomAge + MomWtGain + Visit, 
+                 data = birthweight, family = "binomial")
+
+```
+
+### Stepwise Selection with AIC Criteria
+```{r Exercise 2.1 Stepwise Selection with AIC Criteria}
+step.model.2.aic = step(glm.null.2, scope = list(upper = glm.full.2),
+                                         direction = "both", test = "Chisq", trace = F)
+
+summary(step.model.2.aic)
+```
+
+### Stepwise Selection with BIC Criteria
+```{r Exercise 2.1 Stepwise Selection with BIC Criteria}
+step.model.2.bic = step(glm.null.2, scope = list(upper = glm.full.2),
+                                         direction = "both", test = "Chisq", trace = F, k=log(nrow(birthweight)))
+
+summary(step.model.2.bic)
+```
+
+### AIC and BIC Comparison
+
+**AIC Significant Predictors:** Based on the Stepwise Selection with AIC results, `MomWtGain`, `MomSmoke`, and `MomAge` are significant predictors as they have a p-value below the significance level of 0.05.
+  
+**BIC Significant Predictors:** Based on the Stepwise Selection with BIC results, `MomSmoke`, `MomAge`, and `MomWtGain` are significant predictors as they have a p-value below the significance level of 0.05. 
+
+  - **Observation:** Both AIC and BIC criteria yielded the same significant predictors. However, the AIC criteria model includes two additional variables in comparison to the BIC criteria model - `Ed` and `Boy`.
+
+## Exercise 2.2
+Fit the logistic regression with the best model determined by stepwise selection with BIC criteria. Do not leave observation which has cook’s d larger than **0.1**. Re-fit the model if necessary. Finally how many observations you use in the final model?
+
+### Cook's Distance (Influential Points)
+```{r Exercise 2.2 Cooks Distance}
+plot(step.model.2.bic, which = 4, id.n = 5)
+
+inf.id.2 = which(cooks.distance(step.model.2.bic) > 0.1)
+inf.id.2
+```
+  - **Issues Identified in Model Diagnostics:** There are no observations with a Cook's distance larger than 0.1. 
+  
+  - **How many observations are used in the final model?** All 400 observations are used in the final model as there were no influential points.
+
+## Exercise 2.3
+Based on your final model, interpret the explicit relationship between response and predictors using Odds Ratio.
+```{r Exercise 2.3 Odds Ratio}
+round(exp(step.model.2.bic$coefficients),3)
+```
+
+**Odds Ratio Interpretation:** 
+
+  - The odds of a woman delivering a low birthweight infant decrease by a factor of exp(-0.048266) = 0.953 with a one unit increase in `MomAge` when all other predictors are held constant.
+  
+  - The odds of a woman delivering a low birthweight infant decrease by a factor of exp(-0.036819) = 0.964 with a one unit increase in `MomWtGain` when all other predictors are held constant.
+
+  - The odds that a woman delivers a low birthweight infant is exp(0.865786) = 2.377 times for the `MomSmoke` 1 group (Smoking Mom) compared to group 0 (Non-Smoking Mom.
+
+## Exercise 2.4
+Which woman has the high chance to deliver a low birthweight infant?
+
+**Based on the Odds Ratio results**, A younger woman who weighs less and smokes has a high chance of delivering a low birthweight infant.
+
+## Exercise 2.5
+What is the sample proportion of low birthweight infant in dataset?
+```{r Exercise 2.5 Sample Proportion}
+fit.prob = predict(step.model.2.bic, type = "response")
+
+sample.prop = mean(birthweight$Weight_Gr)
+sample.prop
+```
+
+  - The **sample proportion** of low birthweight infants is 0.4925.
+
+## Exercise 2.6
+Perform classification with probability cut-off set as sample proportion you answer in (5). What is misclassification rate?
+
+### Classification with Sample Proportion Threshold
+```{r Exercise 2.6 Classification with Sample Proportion Threshold}
+pred.class.2 = ifelse(fit.prob > sample.prop, 1, 0) 
+head(cbind(birthweight[c("MomSmoke", "MomAge", "MomWtGain", "Weight_Gr")], fit.prob, pred.class.2),10)
+```
+
+### Misclassification Rate
+```{r Exercise 2.6 Misclassificaiton Rate}
+mean(birthweight$Weight_Gr != pred.class.2)
+```
+
+  - The **misclassification rate** is 0.355.
+
+## Exercise 2.7
+Comment on Goodness of fit test and make a conclusion
+
+### Hosmer-Lemeshow Test
+```{r Exercise 2.2 Hosmer Lemeshow Test}
+hoslem.test(step.model.2.bic$y, fitted(step.model.2.bic), g=10)
+```
+
+  - **Goodness of Fit:** The Hosmer-Lemeshow Test yielded a p-value of 0.3252 which is above the significance level of 0.05. We **do not** reject the null; therefore, the **model is adequate**.
+
+<br>
+
+# Exercise 3
+Compare results from Exercise 1-2 and comment on different or similar conclusions from each analysis. Low birthweight is a risk factor that can lead to infant mortality. If you want to implement a low-birthweight prevention program, what would you suggest to pregnant women?
+
+### Exercise 1 Results
+**Results:** On average, Black women who smoke give birth to infants that weigh less than women who are not Black and don't smoke when `MomWtGain` (Mother’s weight gain during pregnancy) is the same.  
+
+### Exercise 2 Results
+**Results:** A younger woman who weighs less and smokes has a high chance of delivering a low birthweight infant.
+
+### What would you suggest to pregnant women?
+**Based upon these results**, I would suggest for pregnant women to avoid smoking and to have a healthy weight gain during their pregnancy. 

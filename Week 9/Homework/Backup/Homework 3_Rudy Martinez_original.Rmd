@@ -1,0 +1,183 @@
+---
+title: "Homework 3"
+author: "Rudy Martinez, Brenda Parnin, Jose Fernandez"
+date: "11/7/2020"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("/Users/rudymartinez/Desktop/MSDA/Fall 2020/STA 6443_Algorithms I/STAT-Algorithms-1/Week 9/Homework")
+
+heart = read.csv("heart.csv", header = TRUE)
+```
+
+# Exercise 1
+We would like to investigate the relationships between `cholesterol`, `weight` and/or `blood pressure`. The data set contains `Weight`, `Diastolic Blood pressure`, `Systolic blood pressure` and `Cholesterol` for alive subjects in the heart.csv. 
+
+The medical director at your company wants to know if `Weight` alone can predict `Cholesterol` outcome. Consider modeling `Cholesterol` as a function of `Weight`.
+
+## Exercise 1.A
+Fit a linear regression model for `Cholesterol` as a function of `Weight.` If any points are unduly influential, note those points, then remove them and refit the model. Consider Cook’s distance cut off to be **0.015**.
+
+#### Scatter Plot and Correlation Between `Weight` and `Cholesterol`
+```{r Exercise 1.A Scatter Plot and Correlation, message=FALSE}
+lm.heart = lm(Cholesterol~Weight, data = heart)
+
+plot(heart$Weight, heart$Cholesterol, xlab ="Weight", ylab ="Cholesterol")
+abline(lm.heart, col ="red")
+
+cor(heart$Weight, heart$Cholesterol, method ="spearman")
+```
+
+  - **Correlation:** The Spearman Correlation measure of 0.1078544 indicates significantly *low* correlation between `Weight` and `Cholesterol`. 
+
+<br> 
+
+#### R Output (F-Test, T-test, Estimated Regression Line, R-Squared)
+```{r Exercise 1.A R Output}
+summary(lm.heart)
+```
+
+  - **Model Significance:** The model p-value of 9.778e-05 is below the significance level; therefore, we reject the null and conclude that the linear regression model is useful to explain the behavior of `Cholesterol` (at least one X has a linear relationship with Y).
+
+  - **Individual Term Significance:** The T-test on the individual term (`Weight`) yields a p-value of 9.78e-05; therefore, we reject the null and conclude that there is a significant linear relationship between `Weight` and the behavior of `Cholesterol`.
+
+  - **Estimated Regression Line:** Y = 205.86763 + .10867X - On average, `Cholesterol` is predicted to have an increase of .10867 when `Weight` increases by one unit.
+
+  - **R-Squared:**  Although there is a significant relationship between `Weight` and the behavior of `Cholesterol`, only 0.4835% of the variation in `Cholesterol` can be explained by the model. Therefore, this is **not** a good model for the prediction of `Cholesterol` level (low predictive power).
+
+<br>
+
+#### Model Diagnostics
+```{r Exercise 1.A Diagnostics Plot}
+par(mfrow=c(2,2))
+plot(lm.heart, which=c(1:4)) 
+```
+
+  - **Normality Check -** Looking at the **Normal Q-Q Plot**, we see that many of the points fall along the line for the majority of the graph. However, looking at the points in the extremities of the graph, they appear to curve off the line. This indicates that an assumption of normality is **not** reasonable.  This is reinforced by looking at the **sqrt(Standardized Residuals) Plot**. Because a considerable number of observations fall above 1.5 along the Y-axis, an assumption of normality is **not** reasonable.
+
+  - **Equal Variance Check -** Looking at the **Standardized Residuals Plot**, we see that there **is** a pattern in the residual plot. This supports heteroscedasticity.
+
+<br>
+
+#### Influential Points
+Based on the above Cook's Distance plot, the following unduly influential points are noted: Observation **23** and **210**.
+
+**Detect Observations With Cook's Distance Greater Than 0.015**
+```{r Exercise 1.A Influential Points}
+influential.id = which(cooks.distance(lm.heart) > 0.015)
+heart[influential.id, ]
+``` 
+
+**Refitted Model**
+```{r Exercise 1.A Refitted Model}
+lm.heart2 = lm(Cholesterol ~ Weight, data = heart[-influential.id, ])
+```
+
+<br>
+
+## Exercise 1.B
+Comment on significance of the parameters, variation explained by the model, and any remaining issues noted in the diagnostics plots. What does this model tell us about the relationship between `Cholesterol` and `Weight`? Interpret the relationship specifically. Explain to the medical director whether this is a good model for the prediction of Cholesterol level.
+
+**Scatter Plot (w/ Refitted Model)**
+```{r Exercise 1.B Scatter Plot and Correlation (Refitted), message=FALSE}
+plot(heart$Weight, heart$Cholesterol, xlab = "Weight", ylab = "Cholesterol")
+
+abline(lm.heart, col = "red")
+abline(lm.heart2, col = "blue")
+
+legend("bottomright", col = c("red","blue"),legend = c("w/ Influential Observations", "w/out Influential Observations"), cex = 0.8, title.adj = 0.15, lty = 1)
+```
+
+**Run the Model Without Influential Observations**
+```{r Exercise 1.B Refitted Model Without Influential Points}
+summary(lm.heart2)
+```
+
+<br>
+
+**Model Diagnostics (Refitted Model)**
+```{r Exercise 1.B Diagnostics Plot}
+par(mfrow=c(2,2))
+plot(lm.heart2, which=c(1:4)) 
+```
+
+  - **Model Significance:** The model p-value of 8.155e-06 is below the significance level; therefore, we reject the null and conclude that the linear regression model is useful to explain the behavior of `Cholesterol` (at least one X has a linear relationship with Y).
+
+  - **Individual Term Significance:** The T-test on the individual term (`Weight`) yields a p-value of 8.16e-06; therefore, we reject the null and conclude that there is a significant linear relationship between `Weight` and the behavior of `Cholesterol`.
+
+  - **Estimated Regression Line:** Y = 203.57605 + 0.12264X - On average, `Cholesterol` is predicted to have an increase of 0.12264 when `Weight` increases by one unit.
+
+  - **R-Squared:**  Although there is a significant relationship between `Weight` and the behavior of `Cholesterol`, only 0.6339% of the variation in `Cholesterol` can be explained by the model. Therefore, this is **not** a good model for the prediction of `Cholesterol` level (low predictive power). 
+
+  - **Normality Check -** Looking at the **Normal Q-Q Plot**, we see that many of the points fall along the line for the majority of the graph. However, looking at the points in the extremities of the graph, they appear to curve off the line. This indicates that an assumption of normality is **not** reasonable.  This is reinforced by looking at the **sqrt(Standardized Residuals) Plot**. Because a considerable number of observations fall above 1.5 along the Y-axis, an assumption of normality is **not** reasonable.
+
+  - **Equal Variance Check -** Looking at the **Standardized Residuals Plot**, we see that there **is** a pattern in the residual plot. This supports heteroscedasticity.
+
+<br>
+
+# Exercise 2
+The medical director wants to know if blood pressures and weight can better predict `cholesterol` outcome. Consider modeling `cholesterol` as a function of `diastolic`, `systolic`, and `weight.`
+
+## Exercise 2.A
+Fit a linear regression model for `cholesterol` as a function of `diastolic`, `systolic`, and `weight.` Generate the diagnostics plots and comment on any issues that need to be noted. Then make any necessary adjustments for undue influence. For Cook’s distances, do not leave any points in the final model that have Cook’s distance greater than **0.015**.
+```{r Exercise 2.A}
+
+```
+
+## Exercise 2.B
+Comment on significance of the parameters and how much variation in `cholesterol` is described by the model. Comment on the relationship between cholesterol and statistically significant predictor(s). Check multi-collinearity issue among predictors. Explain to the medical director whether this is a good model for the prediction of Cholesterol level.
+```{r Exercise 2.B}
+
+```
+
+<br>
+
+# Exercise 3
+Now consider step-wise model selection for the `Cholesterol` model. We remove influential points detected in Exercise 2, which has cook’s distance larger than **0.015**, prior to performing the model selection.
+
+## Exercise 3.A
+Perform step-wise model selection with **.05** criteria and address any issues in diagnostics plots.
+```{r Exercise 3.A}
+
+```
+
+## Exercise 3.B
+Interpret the final model and comment on the variation in `Cholesterol` explained. Compare the variations explained by the models of from Exercise 1 and 2.
+```{r Exercise 3.B}
+
+```
+
+<br>
+
+# Exercise 4
+Now consider best subset selection for the `Cholesterol` model. Again, we remove influential points detected in Exercise 2, which has cook’s distance larger than **0.015**, prior to performing the model selection.
+
+## Exercise 4.A
+Find the best model based on adjusted-R square criteria and specify which predictors are selected.
+```{r Exercise 4.A}
+
+```
+
+## Exercise 4.B
+Find the best model based on AIC criteria and specify which predictors are selected.
+```{r Exercise 4.B}
+
+```
+
+## Exercise 4.C
+Compare final models selected in a) and b). Also compare final models from best subset approach with
+the final model from step-wise selection.
+```{r Exercise 4.c}
+
+```
+
+
+
+
+
